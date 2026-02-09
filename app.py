@@ -1,5 +1,5 @@
 import streamlit as st
-from ingestion import read_pdf, chunk_text
+from ingestion import read_pdf_pages, chunk_pages
 
 st.set_page_config(page_title="AxiomFlow")
 st.title("AxiomFlow")
@@ -16,16 +16,30 @@ uploaded_file = st.file_uploader(
 if uploaded_file is not None:
     st.success("PDF uploaded successfully")
 
-    text = read_pdf(uploaded_file) #Read PDF
-    st.write("Step 2: Extracted Text Preview")
-    st.write(text[:500])
+    pages = read_pdf_pages(uploaded_file)
+    st.write("Step 2: Extracted Page Preview")
+    st.write(pages[0][0][:500])
 
-    chunks = chunk_text(text) #Chunking
+    chunks = chunk_pages(pages, source=uploaded_file.name)
     st.write("Step 3: Chunking Result")
     st.write(f"Total Chunks Created: {len(chunks)}")
 
-    st.write("Preview first 2 chunks:")
-    st.write(chunks[:2])
+    st.write("Preview first 2 chunks with metadata:")
+    for c in chunks[:2]:
+        st.write({
+            "content": c.content[:200],
+            "source": c.source,
+            "page_number": c.page_number,
+            "content_type": c.content_type,
+            "summary": c.summary
+        })
+
+
+
+
+
+
+
 
 
 
