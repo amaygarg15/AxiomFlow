@@ -8,6 +8,7 @@ from retrieval import HybridRetriever
 from grader import grade_relevance
 from generator import generate_answer
 from query_writer import rewrite_query
+from evaluation import evaluate_response
 
 #page config
 st.set_page_config(page_title="AxiomFlow")
@@ -125,6 +126,34 @@ if uploaded_file is not None:
             answer = generate_answer(question, graded)
 
         st.markdown(answer)
+
+        #evaluation
+        st.divider()
+        st.subheader("Step 7: RAGAS Evaluation")
+
+        if st.button("Evaluate Response Quality"):
+            if graded:
+                with st.spinner("Running RAGAS evaluation..."):
+                    scores = evaluate_response(question, answer, graded)
+
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.metric("Faithfulness", scores["faithfulness"])
+                with col2:
+                    st.metric("Answer Relevancy", scores["answer_relevancy"])
+                with col3:
+                    st.metric("Context Precision", scores["context_precision"])
+
+                avg_score = sum(scores.values()) / 3
+                if avg_score >= 0.8:
+                    st.success(f"Excellent! Average score: {avg_score:.2f}")
+                elif avg_score >= 0.6:
+                    st.info(f"Good. Average score: {avg_score:.2f}")
+                else:
+                    st.warning(f"Needs improvement. Average score: {avg_score:.2f}")
+            else:
+                st.warning("No graded chunks available for evaluation.")
+
 
 
 
