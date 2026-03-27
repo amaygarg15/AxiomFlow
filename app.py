@@ -4,10 +4,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from ingestion import read_pdf_pages, read_txt_pages, read_csv_pages, chunk_pages
-from retrieval import HybridRetriever
-from grader import grade_relevance
-from generator import generate_answer
-from query_writer import rewrite_query
+from rag_graph import run_rag_pipeline
 from evaluation import evaluate_response
 
 #page config
@@ -68,51 +65,26 @@ if uploaded_file is not None:
     question = st.text_input("Enter your question about the document")
 
     if question:
-        #retrieve
-        retriever = HybridRetriever(chunks)
+        #run LangGraph pipeline
+        with st.spinner("Running Agentic RAG pipeline..."):
+            result = run_rag_pipeline(question, chunks, max_attempts=2)
 
-        current_query = question
-        max_attempts = 2
-        attempt = 0
-        graded = []
+        #results
+        st.subheader("Step 5: Pipeline Results")
 
-        #corrective RAG loop
-        while attempt < max_attempts:
-            attempt += 1
+        st.write(f"**Attempts made:** {result['attempt']}")
+        st.write(f"**Final query:** {result['current_query']}")
 
-            st.subheader(f"Attempt {attempt}: Retrieving with query")
-            st.info(f"Query: {current_query}")
-
-            results = retriever.search(current_query, top_k=5)
-
-            with st.expander(f"Retrieved {len(results)} chunks (before grading)"):
-                for i, r in enumerate(results, start=1):
-                    st.write(f"**Chunk {i}** - score {r.score:.4f} - {r.chunk.source} p.{r.chunk.page_number}")
-                    st.write(r.chunk.content[:200])
-                    st.write("---")
-            
-            #grade
-            with st.spinner("Grading relevance of retrieved chunks"):
-                graded = grade_relevance(current_query, results)
-
-            st.write(f"**Grading result:** {len(graded)} of {len(results)} chunks relevant")
-
-            #check if we have relevant chunks
-            if graded:
-                st.success("Found relevant chunks!")
-                break
-            else:
-                st.warning("No relevant chunks found")
-                if attempt < max_attempts:
-                    st.write("Rewriting query and trying again")
-                    with st.spinner("Rewriting query"):
-                        current_query = rewrite_query(question, results)
-                    st.info(f"Rewritten query: {current_query}")
+        if result["current_query"] != question:
+            st.info(f"Query was rewritten from: '{question}'")
 
         #final graded chunks
         st.divider()
-        st.subheader("Step 5: Final Relevant Chunks")
+        st.subheader("Step 6: Final Relevant Chunks")
+        graded = result["graded"]
+    
         if graded:
+            st.success(f"Found {len(graded)} relevant chunks")
             for i, r in enumerate(graded, start = 1):
                 with st.expander(f"Relevant Chunk {i} - {r.chunk.source} p.{r.chunk.page_number}"):
                     st.write(r.chunk.content[:300])
@@ -120,16 +92,13 @@ if uploaded_file is not None:
             st.warning("No relevant chunks found after all attempts.")
         
         #generate
-        st.subheader("Step 6: Answer")
-
-        with st.spinner("Generating grounded answer"):
-            answer = generate_answer(question, graded)
-
+        st.subheader("Step 7: Answer")
+        answer = result["answer"]
         st.markdown(answer)
 
         #evaluation
         st.divider()
-        st.subheader("Step 7: RAGAS Evaluation")
+        st.subheader("Step 8: RAGAS Evaluation")
 
         if st.button("Evaluate Response Quality"):
             if graded:
@@ -153,10 +122,6 @@ if uploaded_file is not None:
                     st.warning(f"Needs improvement. Average score: {avg_score:.2f}")
             else:
                 st.warning("No graded chunks available for evaluation.")
-
-
-
-
 
 
 
