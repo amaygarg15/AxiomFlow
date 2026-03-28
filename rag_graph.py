@@ -74,3 +74,35 @@ def build_rag_graph() -> StateGraph:
     graph.add_edge("generate", END)
 
     return graph.compile()
+
+def run_rag_pipeline(question: str, chunks: list, max_attempts: int = 2) -> dict:
+    """
+    Run the full RAG pipeline and return results.
+
+    Args:
+        question: User's question
+        chunks: Document chunks from ingestion
+        max_attempts: Maximum retrieval attempts
+
+    Returns:
+        Final state with answer and metadata
+    """
+
+    #build graph 
+    app = build_rag_graph()
+
+    #initial state
+    initial_state = {
+        "question": question,
+        "current_query": question,
+        "chunks": chunks,
+        "results": [],
+        "graded": [],
+        "answer": "",
+        "attempt": 0,
+        "max_attempts": max_attempts,
+    }
+
+    final_state = app.invoke(initial_state)  #run graph
+
+    return final_state
